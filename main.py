@@ -1,6 +1,14 @@
+# Importa todas as funcionalidades do módulo tkinter para criar interfaces gráficas.
+# É geralmente recomendado importar apenas os elementos necessários para evitar conflitos de nomes.
 from tkinter import *
+
+# Importa o módulo ttk para utilizar widgets temáticos, oferecendo uma aparência mais moderna.
 from tkinter import ttk
+
+# Importa o módulo sqlite3 para interagir com bancos de dados SQLite.
+# Utiliza o alias 'sql' para facilitar o acesso ao módulo.
 import sqlite3 as sql
+
 
 # Define a fonte padrão utilizada na interface
 txt_fonte = "verdana"
@@ -27,7 +35,7 @@ class Actions:
 
     def conectar_bd(self):
         """Conecta ao banco de dados SQLite"""
-        self.con = sql.connect("clientes.bd")
+        self.con = sql.connect("../clientes.bd")
         self.cursor = self.con.cursor()
         print("Conectando ao banco de dados...")
 
