@@ -1,5 +1,6 @@
 from tkinter import *
 from tkinter import ttk
+import sqlite3 as sql
 
 # Define a fonte padrão utilizada na interface
 txt_fonte = "verdana"
@@ -8,17 +9,114 @@ txt_fonte = "verdana"
 janela = Tk()
 
 
-class App:
+class Actions:
+    """Classe das ações de Backend"""
+
+    def limpar_dados(self):
+        """Limpa os campos de entrada de texto"""
+        self.entrada_cidade.delete(0, END)
+        self.entrada_tel.delete(0, END)
+        self.entrada_nome.delete(0, END)
+        self.entrada_cod.delete(0, END)
+
+    def conectar_bd(self):
+        """Conecta ao banco de dados SQLite"""
+        self.con = sql.connect("clientes.bd")
+        self.cursor = self.con.cursor()
+        print("Conectando ao banco de dados...")
+
+    def desconectar_bd(self):
+        """Fecha a conexão com o banco de dados"""
+        self.con.close()
+        print("Desconectando do banco de dados...")
+
+    def montar_tabelas(self):
+        """Cria a tabela de clientes no banco de dados, se não existir"""
+        self.conectar_bd()
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS clientes (
+                cod INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome_cliente CHAR(40) NOT NULL,
+                telefone CHAR(20),
+                cidade CHAR(40) 
+            )
+            """)
+        self.con.commit()
+        print("Banco de dados criado.")
+        self.desconectar_bd()
+
+    def add_cliente(self):
+        """Adiciona um novo cliente à tabela de clientes"""
+        # Captura os dados dos campos de entrada
+        self.codigo = self.entrada_cod.get()
+        self.nome = self.entrada_nome.get()
+        self.telefone = self.entrada_tel.get()
+        self.cidade = self.entrada_cidade.get()
+
+        # Conecta ao banco de dados e insere os dados do cliente
+        self.conectar_bd()
+        self.cursor.execute("""INSERT INTO clientes (nome_cliente, telefone, cidade)
+            VALUES (?, ?, ?) """, (self.nome, self.telefone, self.cidade))
+        self.con.commit()
+        self.desconectar_bd()
+
+        # Atualiza a lista de clientes exibida na interface
+        self.select_lista()
+        self.limpar_dados()
+
+    def select_lista(self):
+        """Seleciona e exibe todos os clientes na interface"""
+        # Limpa a lista de clientes exibida
+        self.lista_cli.delete(*self.lista_cli.get_children())
+
+        # Conecta ao banco de dados e recupera os dados dos clientes
+        self.conectar_bd()
+        lista = self.cursor.execute("""SELECT cod, nome_cliente, telefone, cidade FROM clientes
+            ORDER BY nome_cliente ASC; """)
+
+        # Insere os dados na interface
+        for i in lista:
+            self.lista_cli.insert("", END, values=i)
+
+        self.desconectar_bd()
+
+    def duplo_clique(self, event):
+        self.limpar_dados()
+        self.lista_cli.selection()
+        for a in self.lista_cli.selection():
+            col1, col2, col3, col4 = self.lista_cli.item(a, "values")
+            self.entrada_cod.insert(END, col1)
+            self.entrada_nome.insert(END, col2)
+            self.entrada_tel.insert(END, col3)
+            self.entrada_cidade.insert(END, col4)
+
+    def del_cliente(self):
+        # Captura os dados dos campos de entrada
+        self.codigo = self.entrada_cod.get()
+        self.nome = self.entrada_nome.get()
+        self.telefone = self.entrada_tel.get()
+        self.cidade = self.entrada_cidade.get()
+        self.conectar_bd()
+
+        self.cursor.execute("""DELETE FROM clientes WHERE cod = ?""", (self.codigo,))
+        self.con.commit()
+        self.desconectar_bd()
+        self.limpar_dados()
+        self.select_lista()
+
+class App(Actions):
     """Classe que cria a aplicação para cadastro de clientes"""
 
     def __init__(self):
         """Inicializa a aplicação, configura a janela e seus componentes"""
-
-        self.janela = janela  # instancia o objeto janela dentro da função
+        # Inicializa a janela principal e seus componentes
+        self.janela = janela  # Instancia o objeto janela dentro da função
         self.tela()  # Configura a janela principal
         self.frames()  # Adiciona frames à janela
         self.todos_objetos()  # Adiciona todos os widgets necessários
         self.exibir_clientes()  # Configura a visualização dos clientes
+        self.montar_tabelas()  # Se conecta ao banco de dados
+        self.select_lista()  # Atualiza lista de clientes
 
         # Inicia o loop principal da aplicação, mantendo a janela aberta
         janela.mainloop()
@@ -51,70 +149,76 @@ class App:
         """Adiciona todos os widgets (botões, labels, entradas) ao frame1"""
 
         # Botão para limpar os dados inseridos
-        self.but_limpar = Button(self.frame1, text="limpar",
+        self.but_limpar = Button(self.frame1, text="Limpar Campos",
                                  border=4, bg="#2F4F4F", fg="white",
-                                 font=(txt_fonte, 8, "bold"))
-        self.but_limpar.place(relx=0.05, rely=0.2, relwidth=0.1, relheight=0.15)
+                                 font=(txt_fonte, 8, "bold"),
+                                 command=self.limpar_dados)
+        self.but_limpar.place(relx=0.02, rely=0.8, relwidth=0.20, relheight=0.15)
 
         # Botão para buscar um cliente
-        self.but_buscar = Button(self.frame1, text="buscar",
+        self.but_buscar = Button(self.frame1, text="Buscar",
                                  border=4, bg="#2F4F4F", fg="white",
                                  font=(txt_fonte, 8, "bold"))
-        self.but_buscar.place(relx=0.165, rely=0.2, relwidth=0.1, relheight=0.15)
+        self.but_buscar.place(relx=0.23, rely=0.8, relwidth=0.12, relheight=0.15)
 
         # Botão para adicionar um novo cliente
-        self.but_novo = Button(self.frame1, text="novo",
-                               border=4, bg="#2F4F4F", fg="white",
-                               font=(txt_fonte, 8, "bold"))
-        self.but_novo.place(relx=0.42, rely=0.1, relwidth=0.1, relheight=0.15)
+        self.but_novo = Button(self.frame1, text="Cadastrar Cliente",
+                               border=4, bg="green", fg="white",
+                               font=(txt_fonte, 8, "bold"), command=self.add_cliente)
+        self.but_novo.place(relx=0.36, rely=0.8, relwidth=0.25, relheight=0.15)
 
         # Botão para alterar os dados de um cliente existente
-        self.but_alterar = Button(self.frame1, text="alterar",
+        self.but_alterar = Button(self.frame1, text="Atualizar",
                                   border=4, bg="#2F4F4F", fg="white",
                                   font=(txt_fonte, 8, "bold"))
-        self.but_alterar.place(relx=0.53, rely=0.1, relwidth=0.1, relheight=0.15)
+        self.but_alterar.place(relx=0.62, rely=0.8, relwidth=0.13, relheight=0.15)
 
         # Botão para apagar um cliente
-        self.but_apagar = Button(self.frame1, text="apagar",
-                                 border=4, bg="#2F4F4F", fg="white",
-                                 font=(txt_fonte, 8, "bold"))
-        self.but_apagar.place(relx=0.64, rely=0.1, relwidth=0.1, relheight=0.15)
+        self.but_apagar = Button(self.frame1, text="Excluir Cadastro",
+                                 border=4, bg="#722F37", fg="white",
+                                 font=(txt_fonte, 8, "bold"), command=self.del_cliente)
+        self.but_apagar.place(relx=0.76, rely=0.8, relwidth=0.23, relheight=0.15)
+
+        # Rótulo (label) para o Nome do Programa
+        self.rotulo_prog = Label(self.frame1, text="Cadastro de Clientes",
+                                 fg="white", bg="black", font=("arial", 16, "bold"))
+        self.rotulo_prog.place(relx=0.42, rely=0.04, relwidth=0.57, relheight=0.15)
 
         # Rótulo (label) para o campo Código do cliente
         self.rotulo_cod = Label(self.frame1, text="Código",
                                 fg="white", bg="black", font=(txt_fonte, 8))
-        self.rotulo_cod.place(relx=0.05, rely=0.03, relwidth=0.1, relheight=0.15)
+        self.rotulo_cod.place(relx=0.02, rely=0.04, relwidth=0.1, relheight=0.15)
 
         # Entrada de texto para o Código do cliente
         self.entrada_cod = Entry(self.frame1, font=(txt_fonte, 8))
-        self.entrada_cod.place(relx=0.165, rely=0.03, relwidth=0.1, relheight=0.15)
+        self.entrada_cod.place(relx=0.15, rely=0.04, relwidth=0.25, relheight=0.15)
 
         # Rótulo (label) para o campo Nome do cliente
         self.rotulo_nome = Label(self.frame1, text="Nome",
                                  fg="white", bg="black", font=(txt_fonte, 8))
-        self.rotulo_nome.place(relx=0.05, rely=0.45, relwidth=0.1, relheight=0.15)
+        self.rotulo_nome.place(relx=0.02, rely=0.3, relwidth=0.1, relheight=0.15)
 
         # Entrada de texto para o Nome do cliente
         self.entrada_nome = Entry(self.frame1, font=(txt_fonte, 8))
-        self.entrada_nome.place(relx=0.165, rely=0.45, relwidth=0.8, relheight=0.15)
+        self.entrada_nome.place(relx=0.149, rely=0.3, relwidth=0.837, relheight=0.15)
 
         # Rótulo (label) para o campo Telefone do cliente
         self.rotulo_tel = Label(self.frame1, text="Telefone",
                                 fg="white", bg="black", font=(txt_fonte, 8))
-        self.rotulo_tel.place(relx=0.05, rely=0.65, relwidth=0.1, relheight=0.15)
+        self.rotulo_tel.place(relx=0.02, rely=0.55, relwidth=0.1, relheight=0.15)
 
         # Entrada de texto para o Telefone do cliente
         self.entrada_tel = Entry(self.frame1, font=(txt_fonte, 8))
-        self.entrada_tel.place(relx=0.165, rely=0.65, relwidth=0.3, relheight=0.15)
+        self.entrada_tel.place(relx=0.149, rely=0.55, relwidth=0.3, relheight=0.15)
 
         # Rótulo (label) para o campo Cidade do cliente
         self.rotulo_cidade = Label(self.frame1, text="Cidade",
                                    fg="white", bg="black", font=(txt_fonte, 8))
-        self.rotulo_cidade.place(relx=0.49, rely=0.65, relwidth=0.1, relheight=0.15)
+        self.rotulo_cidade.place(relx=0.475, rely=0.55, relwidth=0.1, relheight=0.15)
 
         # Entrada de texto para a Cidade do cliente
         self.entrada_cidade = Entry(self.frame1, font=(txt_fonte, 8))
-        self.entrada_cidade.place(relx=0.61, rely=0.65, relwidth=0.355, relheight=0.15)
+        self.entrada_cidade.place(relx=0.6, rely=0.55, relwidth=0.385, relheight=0.15)
 
     def exibir_clientes(self):
         """Configura o frame2 para exibir a lista de clientes"""
@@ -144,6 +248,7 @@ class App:
         self.lista_cli.column("#3", width=125)
         self.lista_cli.column("#4", width=125)
 
+        self.lista_cli.bind("<Double-1>", self.duplo_clique)
 
 # Instancia e executa a aplicação
 App()
