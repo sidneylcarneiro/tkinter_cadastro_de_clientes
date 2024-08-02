@@ -8,9 +8,15 @@ txt_fonte = "verdana"
 # Cria o objeto principal da janela
 janela = Tk()
 
-
 class Actions:
     """Classe das ações de Backend"""
+
+    def variaveis_bd(self):
+        # Captura os dados dos campos de entrada
+        self.codigo = self.entrada_cod.get()
+        self.nome = self.entrada_nome.get()
+        self.telefone = self.entrada_tel.get()
+        self.cidade = self.entrada_cidade.get()
 
     def limpar_dados(self):
         """Limpa os campos de entrada de texto"""
@@ -48,10 +54,7 @@ class Actions:
     def add_cliente(self):
         """Adiciona um novo cliente à tabela de clientes"""
         # Captura os dados dos campos de entrada
-        self.codigo = self.entrada_cod.get()
-        self.nome = self.entrada_nome.get()
-        self.telefone = self.entrada_tel.get()
-        self.cidade = self.entrada_cidade.get()
+        self.variaveis_bd()
 
         # Conecta ao banco de dados e insere os dados do cliente
         self.conectar_bd()
@@ -80,6 +83,37 @@ class Actions:
 
         self.desconectar_bd()
 
+    def buscar_cliente(self):
+        """Busca um cliente pelo código, preenche os campos de entrada e destaca na lista"""
+
+        # Captura o código do campo de entrada
+        self.variaveis_bd()
+
+        # Conecta ao banco de dados e busca pelo código
+        self.conectar_bd()
+        cliente = self.cursor.execute("""SELECT cod, nome_cliente, telefone, cidade FROM clientes
+            WHERE cod = ?""", (self.codigo,)).fetchone()
+
+        # Se um cliente for encontrado, preenche os campos de entrada e seleciona na lista
+        if cliente:
+            # Limpa os campos de entrada
+            self.limpar_dados()
+
+            # Preenche os campos de entrada com os dados do cliente encontrado
+            self.entrada_cod.insert(END, cliente[0])
+            self.entrada_nome.insert(END, cliente[1])
+            self.entrada_tel.insert(END, cliente[2])
+            self.entrada_cidade.insert(END, cliente[3])
+
+            # Percorre a lista de clientes e destaca o cliente encontrado
+            for item in self.lista_cli.get_children():
+                if self.lista_cli.item(item, 'values')[0] == cliente[0]:
+                    self.lista_cli.selection_set(item)
+                    self.lista_cli.see(item)  # Garante que o item esteja visível na lista
+                    break
+
+        self.desconectar_bd()
+
     def duplo_clique(self, event):
         self.limpar_dados()
         self.lista_cli.selection()
@@ -92,10 +126,7 @@ class Actions:
 
     def del_cliente(self):
         # Captura os dados dos campos de entrada
-        self.codigo = self.entrada_cod.get()
-        self.nome = self.entrada_nome.get()
-        self.telefone = self.entrada_tel.get()
-        self.cidade = self.entrada_cidade.get()
+        self.variaveis_bd()
         self.conectar_bd()
 
         self.cursor.execute("""DELETE FROM clientes WHERE cod = ?""", (self.codigo,))
@@ -103,6 +134,16 @@ class Actions:
         self.desconectar_bd()
         self.limpar_dados()
         self.select_lista()
+
+    def atualizar_cliente(self):
+        self.variaveis_bd()
+        self.conectar_bd()
+        self.cursor.execute("""UPDATE clientes SET nome_cliente = ?, telefone = ?, cidade = ?
+            WHERE cod = ?""", (self.nome, self.telefone, self.cidade, self.codigo))
+        self.con.commit()
+        self.desconectar_bd()
+        self.select_lista()
+        self.limpar_dados()
 
 class App(Actions):
     """Classe que cria a aplicação para cadastro de clientes"""
@@ -117,7 +158,7 @@ class App(Actions):
         self.exibir_clientes()  # Configura a visualização dos clientes
         self.montar_tabelas()  # Se conecta ao banco de dados
         self.select_lista()  # Atualiza lista de clientes
-
+        self.menu_app()
         # Inicia o loop principal da aplicação, mantendo a janela aberta
         janela.mainloop()
 
@@ -156,28 +197,29 @@ class App(Actions):
         self.but_limpar.place(relx=0.02, rely=0.8, relwidth=0.20, relheight=0.15)
 
         # Botão para buscar um cliente
-        self.but_buscar = Button(self.frame1, text="Buscar",
+        self.but_buscar = Button(self.frame1, text="Buscar Código",
                                  border=4, bg="#2F4F4F", fg="white",
-                                 font=(txt_fonte, 8, "bold"))
-        self.but_buscar.place(relx=0.23, rely=0.8, relwidth=0.12, relheight=0.15)
+                                 font=(txt_fonte, 8, "bold"),
+                                 command=self.buscar_cliente)  # Chama o método buscar_cliente
+        self.but_buscar.place(relx=0.225, rely=0.8, relwidth=0.18, relheight=0.15)
 
         # Botão para adicionar um novo cliente
-        self.but_novo = Button(self.frame1, text="Cadastrar Cliente",
+        self.but_novo = Button(self.frame1, text="Novo Cliente",
                                border=4, bg="green", fg="white",
                                font=(txt_fonte, 8, "bold"), command=self.add_cliente)
-        self.but_novo.place(relx=0.36, rely=0.8, relwidth=0.25, relheight=0.15)
+        self.but_novo.place(relx=0.405, rely=0.8, relwidth=0.18, relheight=0.15)
 
-        # Botão para alterar os dados de um cliente existente
-        self.but_alterar = Button(self.frame1, text="Atualizar",
+        # Botão para atualizar um cliente existente
+        self.but_alterar = Button(self.frame1, text="Alterar Cliente",
                                   border=4, bg="#2F4F4F", fg="white",
-                                  font=(txt_fonte, 8, "bold"))
-        self.but_alterar.place(relx=0.62, rely=0.8, relwidth=0.13, relheight=0.15)
+                                  font=(txt_fonte, 8, "bold"), command=self.atualizar_cliente)
+        self.but_alterar.place(relx=0.59, rely=0.8, relwidth=0.19, relheight=0.15)
 
         # Botão para apagar um cliente
-        self.but_apagar = Button(self.frame1, text="Excluir Cadastro",
+        self.but_apagar = Button(self.frame1, text="Excluir Cliente",
                                  border=4, bg="#722F37", fg="white",
                                  font=(txt_fonte, 8, "bold"), command=self.del_cliente)
-        self.but_apagar.place(relx=0.76, rely=0.8, relwidth=0.23, relheight=0.15)
+        self.but_apagar.place(relx=0.785, rely=0.8, relwidth=0.20, relheight=0.15)
 
         # Rótulo (label) para o Nome do Programa
         self.rotulo_prog = Label(self.frame1, text="Cadastro de Clientes",
@@ -249,6 +291,19 @@ class App(Actions):
         self.lista_cli.column("#4", width=125)
 
         self.lista_cli.bind("<Double-1>", self.duplo_clique)
+
+    def menu_app(self):
+        menubar = Menu(self.janela)
+        self.janela.config(menu=menubar)
+        filemenu = Menu(menubar)
+        filemenu2 = Menu(menubar)
+
+        def exit_app(): self.janela.destroy()
+
+        menubar.add_cascade(label="Opções", menu=filemenu)
+        menubar.add_cascade(label="Sobre", menu=filemenu2)
+        filemenu.add_command(label="Sair", command=exit_app)
+        filemenu2.add_command(label="Limpa Cliente", command=self.limpar_dados)
 
 # Instancia e executa a aplicação
 App()
